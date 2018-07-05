@@ -1,0 +1,239 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Test CFT for Aurora DB
+Parameters:
+  ApplicationName:
+    Description: Name of application
+    Type: String
+    Default: Test Invoice Resend Portal
+    MinLength: '1'
+    MaxLength: '255'
+    AllowedPattern: '[\x20-\x7E]*'
+    ConstraintDescription: Must contain only ASCII characters.
+  ApplicationId:
+    Description: Application ID
+    Type: String
+    Default: Test
+    MinLength: '1'
+    MaxLength: '255'
+    AllowedPattern: '[\x20-\x7E]*'
+    ConstraintDescription: Must contain only ASCII characters.
+  PONumber:
+    Description: PO Number for billing
+    Type: String
+    Default: ''
+    MinLength: '1'
+    MaxLength: '255'
+    AllowedPattern: '[\x20-\x7E]*'
+    ConstraintDescription: Must contain only ASCII characters.
+  CostCenter:
+    Description: CostCenter
+    Type: String
+    Default: Test
+    MinLength: '1'
+    MaxLength: '255'
+    AllowedPattern: '[\x20-\x7E]*'
+    ConstraintDescription: Must contain only ASCII characters.
+  Approver:
+    Description: Name of application approver
+    Type: String
+    Default: User
+    MinLength: '1'
+    MaxLength: '255'
+  Owner:
+    Description: Name of application owner
+    Type: String
+    Default: User
+    MinLength: '1'
+    MaxLength: '255'
+  Environment:
+    Description: Environment for application
+    Type: String
+    Default: Production
+    AllowedValues:
+      - Sandbox
+      - Development
+      - Quality
+      - Staging
+      - Training
+      - Production
+    ConstraintDescription: Must be a valid environment.
+  EnvironmentShort:
+    Description: Environment initials
+    Type: String
+    Default: PROD
+    AllowedValues:
+      - SBX
+      - DEV
+      - QA
+      - STG
+      - TRN
+      - PROD
+    ConstraintDescription: Must be a valid environment.
+  ProjectId:
+    Description: Project ID
+    Type: String
+    Default: '3302'
+    MinLength: '1'
+    MaxLength: '255'
+    AllowedPattern: '[\x20-\x7E]*'
+    ConstraintDescription: Must contain only ASCII characters.
+  VPCID:
+    Description: Name of an existing Production VPC
+    Type: 'AWS::EC2::VPC::Id'
+    Default: Your VPC
+    ConstraintDescription: Must be a valid VPC.
+  DBInstanceType:
+    Description: RDS DB instance types
+    Type: String
+    Default: db.t2.medium
+    AllowedValues:
+      - db.t2.small
+      - db.t2.medium
+      - db.t2.large
+    ConstraintDescription: Must be a valid Availability zone.
+  RDSPassword:
+    Description: RDS root password
+    Type: String
+    Default: ''
+    NoEcho: 'true'
+    MinLength: '1'
+    MaxLength: '30'
+  DatabaseName:
+    Description: RDS database name
+    Type: String
+    Default: testprod
+    MinLength: '1'
+    MaxLength: '30'
+  SubnetIdPrivateEastC:
+    Description: 'Private subnet for confidential apps in us-east-1c CIDR: 10.168.154.0/23'
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-1ec25b69
+    MinLength: '1'
+    MaxLength: '255'
+    ConstraintDescription: Must be a valid Private Subnet.
+  SubnetIdPrivateEastD:
+    Description: 'Private subnet for confidential apps in us-east-1d CIDR: 10.168.146.0/24'
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-0fe2af52
+    MinLength: '1'
+    MaxLength: '255'
+    ConstraintDescription: Must be a valid Private Subnet.
+  SubnetIdPrivateEastE:
+    Description: 'Private subnet for confidential apps in us-east-1e CIDR: 10.168.158.0/23'
+    Type: 'AWS::EC2::Subnet::Id'
+    Default: subnet-a421629e
+    MinLength: '1'
+    MaxLength: '255'
+    ConstraintDescription: Must be a valid Private Subnet.
+Resources:
+  AuroraCluster:
+    Type: 'AWS::RDS::DBCluster'
+    DeletionPolicy: Snapshot
+    Properties:
+      DatabaseName: !Ref DatabaseName
+      Engine: aurora
+      MasterUsername: root
+      MasterUserPassword: !Ref RDSPassword
+      PreferredMaintenanceWindow: 'sun:02:00-sun:10:00'
+      Port: '3306'
+      VpcSecurityGroupIds:
+        - !Ref DBSG
+      BackupRetentionPeriod: '14'
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+  AuroraRDS:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      PubliclyAccessible: 'false'
+      DBInstanceIdentifier: Test-prod-aurora
+      AllowMajorVersionUpgrade: 'true'
+      DBClusterIdentifier: !Ref AuroraCluster
+      DBInstanceClass: !Ref DBInstanceType
+      Engine: aurora
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      PreferredMaintenanceWindow: 'sun:02:00-sun:10:00'
+      Tags:
+        - Key: Name
+          Value: Test-prod-aurora
+        - Key: Application_Id
+          Value: !Ref ApplicationId
+        - Key: Application_Name
+          Value: !Ref ApplicationName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Cost_Center
+          Value: !Ref CostCenter
+        - Key: PO_Number
+          Value: !Ref PONumber
+        - Key: Project_ID
+          Value: !Ref ProjectId
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Approver
+          Value: !Ref Approver
+  RDSSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: Test Invoice Resend Portal prod RDS Database subnet group
+      SubnetIds:
+        - !Ref SubnetIdPrivateEastC
+        - !Ref SubnetIdPrivateEastD
+        - !Ref SubnetIdPrivateEastE
+      Tags:
+        - Key: Name
+          Value: Test-prod-aurora
+        - Key: Application_Id
+          Value: !Ref ApplicationId
+        - Key: Application_Name
+          Value: !Ref ApplicationName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Cost_Center
+          Value: !Ref CostCenter
+        - Key: PO_Number
+          Value: !Ref PONumber
+        - Key: Project_ID
+          Value: !Ref ProjectId
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Approver
+          Value: !Ref Approver
+  DBSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Test Invoice Resend Portal prod RDS Database SG
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: sg/vpc_sysco_prod_01/Test_prod_db
+        - Key: Application_Id
+          Value: !Ref ApplicationId
+        - Key: Application_Name
+          Value: !Ref ApplicationName
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Cost_Center
+          Value: !Ref CostCenter
+        - Key: PO_Number
+          Value: !Ref PONumber
+        - Key: Project_ID
+          Value: !Ref ProjectId
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: Approver
+          Value: !Ref Approver
+Outputs:
+  RdsUrl:
+    Description: >-
+      URL for Test Prod RDS
+      Instance
+    Value: !Join 
+      - ''
+      - - 'mysql://'
+        - !GetAtt 
+          - AuroraRDS
+          - Endpoint.Address

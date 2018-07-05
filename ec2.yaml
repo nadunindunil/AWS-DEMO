@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This is test stack to deploy one EC2
+Parameters:
+  ApplicationName:
+    Description: Name of application
+    Type: String
+    Default: testEC2
+    MinLength: '1'
+    MaxLength: '255'
+    AllowedPattern: '[\x20-\x7E]*'
+    ConstraintDescription: Must contain only ASCII characters.
+  ApplicationId:
+    Description: Application ID
+    Type: String
+    Default: testEC2
+    MinLength: '1'
+    MaxLength: '255'
+    AllowedPattern: '[\x20-\x7E]*'
+    ConstraintDescription: Must contain only ASCII characters.
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    Default: myTestKey
+    MinLength: '1'
+    MaxLength: '255'
+    AllowedPattern: '[\x20-\x7E]*'
+    ConstraintDescription: Must contain only ASCII characters.
+  SwapDisk:
+    Description: Size (GB) of Swap EBS volume for instance
+    Type: Number
+    MinValue: '2'
+    MaxValue: '128'
+    Default: '16'
+  AppVolumeSize:
+    Description: Size (GB) of root EBS volume for application instance
+    Type: Number
+    Default: '10'
+    MinValue: '10'
+    MaxValue: '200'
+  RootVolumeSize:
+    Description: Size (GB) of root EBS volume for application instance
+    Type: Number
+    Default: '10'
+    MinValue: '10'
+    MaxValue: '1024'
+  EnvironmentType: 
+      Description: The environment type
+      Type: String
+      Default: test
+      AllowedValues: 
+        - prod
+        - test
+      ConstraintDescription: must be a prod or test
+
+Mappings: 
+  RegionAndInstanceTypeToAMIID: 
+    us-east-1: 
+      test: "ami-b70554c8"
+      prod: "ami-cfe4b2b0"
+    us-west-2: 
+      test: "ami-b70554c8"
+      prod: "ami-cfe4b2b0"
+
+Conditions: 
+  CreateProdResources: !Equals [ !Ref EnvironmentType, prod ]
+
+Resources:
+  testEC2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      DisableApiTermination: 'true'
+      AvailabilityZone: us-east-1c
+      ImageId: !FindInMap [RegionAndInstanceTypeToAMIID, !Ref "AWS::Region", !Ref EnvironmentType]   # using map
+      InstanceType: !If [CreateProdResources, t2.micro, t2.nano]   # using conditions
+      KeyName: !Ref KeyName  # this is the key name you created
+      SecurityGroupIds:
+        - !Ref WebSG
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: !Ref RootVolumeSize
+            VolumeType: gp2
+        - DeviceName: /dev/sdf
+          Ebs:
+            VolumeSize: !Ref AppVolumeSize
+            VolumeType: gp2
+        - DeviceName: /dev/sds
+          Ebs:
+            VolumeSize: !Ref SwapDisk
+            VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: testEC2
+        - Key: Application_Name
+          Value: !Ref ApplicationName
+        - Key: Application_Id
+          Value: !Ref ApplicationId
+  WebSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'testEC2 Web SG'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: icmp
+          FromPort: '-1'
+          ToPort: '-1'
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: sg/test_security_group_nonProd
+        - Key: Application_Id
+          Value: !Ref ApplicationId
+        - Key: Application_Name
+          Value: !Ref ApplicationName
+          
+Outputs:
+  MYEC2:
+    Description: EC2 detail
+    Value: !Ref testEC2
+    Export:
+      Name: !Sub "${AWS::StackName}-EC2"
+  EC2PUBLICIP:
+    Description: Public IP Address
+    Value:
+      !GetAtt testEC2.PublicIp
